@@ -1,6 +1,4 @@
 use std::collections::{BTreeSet, BTreeMap};
-use std::cmp::Ord;
-use std::iter::once;
 use std::vec;
 use svg::Document;
 use svg::node::element::{Ellipse, Circle, Text, Line, Definitions, Path, Marker};
@@ -21,9 +19,6 @@ fn main() {
 
     let (draw_domain, domain_loc) = render_set(&relation.domain, 1.5, 0.25);
     let (draw_codomain, codomain_loc) = render_set(&relation.codomain, 4.5, 0.25);
-
-    let one = Rational64::from_f64(1.0).unwrap();
-    println!("{:?}", domain_loc.get(&one).unwrap());
 
     let draw_arrows = relation.cartesian_product()
         .into_iter().filter(|tup| (relation.p)(*tup)).map(|(x, y)| {
