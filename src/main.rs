@@ -3,7 +3,7 @@ use std::cmp::Ord;
 use std::iter::once;
 use std::vec;
 use svg::Document;
-use svg::node::element::{Ellipse, Circle, Text, Line};
+use svg::node::element::{Ellipse, Circle, Text, Line, Definitions, Path, Marker};
 use svg::node::Node;
 use num::FromPrimitive;
 use num::Signed;
@@ -25,28 +25,47 @@ fn main() {
     let one = Rational64::from_f64(1.0).unwrap();
     println!("{:?}", domain_loc.get(&one).unwrap());
 
-    let draw_lines = relation.cartesian_product()
+    let draw_arrows = relation.cartesian_product()
         .into_iter().filter(|tup| (relation.p)(*tup)).map(|(x, y)| {
         // the |(x, y)| are elements of the domain & co-domain, not co-ords
         let (x1, y1) = domain_loc.get(x).unwrap();
         let (x2, y2) = codomain_loc.get(y).unwrap();
         
-        const OFFSET: f64 = 0.2;
+        // TODO: make offset a distance rather than percentage
+        const OFFSET: f64 = 0.22;
+        let (center_x, center_y) = ((x1+x2)/2.0, (y1+y2)/2.0);
+        // let x1 = x1*(1.0-OFFSET) + center_x*OFFSET;
+        let x2 = x2*(1.0-OFFSET) + center_x*OFFSET;
+        // let y1 = y1*(1.0-OFFSET) + center_y*OFFSET;
+        let y2 = y2*(1.0-OFFSET) + center_y*OFFSET;
+
         Box::new(Line::new()
-            .set("x1", format!("{}in", x1 + OFFSET))
+            .set("x1", format!("{}in", x1))
             .set("y1", format!("{}in", y1))
-            .set("x2", format!("{}in", x2 - OFFSET))
+            .set("x2", format!("{}in", x2))
             .set("y2", format!("{}in", y2))
-            .set("stroke", "black")) as Box<dyn Node>
+            .set("marker-end", "url(#arrow)")
+            .set("stroke", "black")
+            .set("stroke-width", "0.03in")) as Box<dyn Node>
     });
+
+    let arrow_heads = Marker::new()
+        .set("id", "arrow")
+        .set("refY", "2")
+        .set("markerUnits", "strokeWidth")
+        .set("markerWidth", "4")
+        .set("markerHeight", "4")
+        .set("orient", "auto")
+        .add(Path::new().set("d", "M 0 0 L 4 2 L 0 4 z").set("fill", "black"));
 
     let mut document = Document::new()
         .set("width", "6in") // hardcoded doc size is not ideal
-        .set("height", "6in");
+        .set("height", "6in")
+        .add(Definitions::new().add(arrow_heads));
 
     let to_draw = draw_domain
         .chain(draw_codomain)
-        .chain(draw_lines);
+        .chain(draw_arrows);
 
     for item in to_draw {
         document = document.add(item)
