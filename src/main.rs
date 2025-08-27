@@ -17,50 +17,61 @@ fn main() {
         p: &p
     };
 
-    
-    let mut to_draw: Vec<Box<dyn Node>> = Vec::new();
-
-    const SPACING: f64 = 0.70; // space in inches between bullet points
-    const CENTER_Y: f64 = 2.5;
-
-
-    let left_elipse = Ellipse::new()
-        .set("cx", "1.5in")
-        .set("cy", format!("{}in", CENTER_Y))
-        .set("rx", "1in")
-        .set("ry", "2in")
-        .set("stroke", "black")
-        .set("fill", "white")
-        .set("stroke-width", "0.05in");
-
-    // The median node should be at the center of the ellipse
-    let center = relation.domain.len() as f64 / 2.0 - 0.5;
-    for (i, element) in relation.domain.iter().enumerate() {
-        let pos_y = (i as f64 - center) * SPACING + CENTER_Y;
-        let dot = Circle::new()
-            .set("cy", format!("{}in", pos_y))
-            .set("cx", "1.5in")
-            .set("r", "0.1in")
-            .set("fill", "black");
-        let text = Text::new("text")
-            .set("x", "1.5in")
-            .set("y", format!("{}in", pos_y - 0.2))
-            .set("font-size", "20");
-        to_draw.push(Box::new(dot));
-        to_draw.push(Box::new(text));
-    }
+    let draw_domain = render_set(relation.domain, 1.5, 0.5);
+    let draw_codomain = render_set(relation.codomain, 4.5, 0.5);
 
 
     let mut document = Document::new()
-        .set("width", "5in")
-        .set("height", "5in")
-        .add(left_elipse);
+        .set("width", "6in")
+        .set("height", "5in");
 
-    for item in to_draw { document = document.add(item) }
+    for item in draw_domain.into_iter().chain(draw_codomain.into_iter()) {
+        document = document.add(item)
+    }
 
     svg::save("diagram.svg", &document).unwrap();
 
 }
+
+/// Set, and starting coordinates in inches
+fn render_set(set: BTreeSet<Rational64>, x: f64, y: f64) -> Vec<Box<dyn Node>> {
+    let mut to_draw: Vec<Box<dyn Node>> = Vec::new();
+
+    const SPACING: f64 = 0.70; // space in inches between bullet points
+    let center_y: f64 = SPACING * set.len() as f64 / 2.0 + y;
+
+    let elipse = Ellipse::new()
+        .set("cx", format!("{}in", x))
+        .set("cy", format!("{}in", center_y))
+        .set("rx", "1in")
+        .set("ry", format!("{}in", center_y - 0.2))
+        .set("stroke", "black")
+        .set("fill", "white")
+        .set("stroke-width", "0.05in");
+    to_draw.push(Box::new(elipse));
+
+    // The median node should be at the center of the ellipse
+    let center = set.len() as f64 / 2.0 - 0.5;
+    for (i, element) in set.iter().enumerate() {
+        let pos_y = (i as f64 - center) * SPACING + center_y;
+        let dot = Circle::new()
+            .set("cy", format!("{}in", pos_y))
+            .set("cx", format!("{}in", x))
+            .set("r", "0.1in")
+            .set("fill", "black");
+
+        let text = Text::new(format!("{}", element))
+            .set("x", format!("{}in", x))
+            .set("y", format!("{}in", pos_y - 0.2))
+            .set("font-size", "30")
+            .set("text-anchor", "middle");
+        to_draw.push(Box::new(dot));
+        to_draw.push(Box::new(text));
+    }
+
+    to_draw
+}
+
 
 fn into_set(vec: Vec<f64>) -> BTreeSet<Rational64> {
     let mut set = BTreeSet::new();
