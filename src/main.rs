@@ -1,14 +1,16 @@
 use std::collections::{BTreeSet, BTreeMap};
 use std::cmp::Ord;
+use std::iter::once;
+use std::vec;
 use svg::Document;
-use svg::node::element::{Ellipse, Circle, Text};
+use svg::node::element::{Ellipse, Circle, Text, Line};
 use svg::node::Node;
 use num::FromPrimitive;
 use num::Signed;
 use num::rational::Rational64;
 
 fn main() {
-    fn p ((x, y): (Rational64, Rational64)) -> bool {
+    fn p ((x, y): (&Rational64, &Rational64)) -> bool {
         (x.recip() - y.recip()).fract().abs() < Rational64::from_f64(0.00001).unwrap()
     }
     let relation = Relation {
@@ -17,15 +19,36 @@ fn main() {
         p: &p
     };
 
-    let (draw_domain, domain_loc) = render_set(relation.domain, 1.5, 0.25);
-    let (draw_codomain, codomain_loc) = render_set(relation.codomain, 4.5, 0.25);
+    let (draw_domain, domain_loc) = render_set(&relation.domain, 1.5, 0.25);
+    let (draw_codomain, codomain_loc) = render_set(&relation.codomain, 4.5, 0.25);
 
+    let one = Rational64::from_f64(1.0).unwrap();
+    println!("{:?}", domain_loc.get(&one).unwrap());
+
+    let draw_lines = relation.cartesian_product()
+        .into_iter().filter(|tup| (relation.p)(*tup)).map(|(x, y)| {
+        // the |(x, y)| are elements of the domain & co-domain, not co-ords
+        let (x1, y1) = domain_loc.get(x).unwrap();
+        let (x2, y2) = codomain_loc.get(y).unwrap();
+        
+        const OFFSET: f64 = 0.2;
+        Box::new(Line::new()
+            .set("x1", format!("{}in", x1 + OFFSET))
+            .set("y1", format!("{}in", y1))
+            .set("x2", format!("{}in", x2 - OFFSET))
+            .set("y2", format!("{}in", y2))
+            .set("stroke", "black")) as Box<dyn Node>
+    });
 
     let mut document = Document::new()
-        .set("width", "6in")
+        .set("width", "6in") // hardcoded doc size is not ideal
         .set("height", "6in");
 
-    for item in draw_domain.into_iter().chain(draw_codomain.into_iter()) {
+    let to_draw = draw_domain
+        .chain(draw_codomain)
+        .chain(draw_lines);
+
+    for item in to_draw {
         document = document.add(item)
     }
 
@@ -34,8 +57,8 @@ fn main() {
 }
 
 /// Set, and starting coordinates in inches
-fn render_set(set: BTreeSet<Rational64>, x: f64, y: f64) ->
-(Vec<Box<dyn Node>>, BTreeMap<Rational64, (f64, f64)>) {
+fn render_set(set: &BTreeSet<Rational64>, x: f64, y: f64) ->
+(vec::IntoIter<Box<dyn Node>>, BTreeMap<Rational64, (f64, f64)>) {
     // The elements to be rendered
     let mut to_draw: Vec<Box<dyn Node>> = Vec::new();
     // So that we know where each number is
@@ -57,7 +80,7 @@ fn render_set(set: BTreeSet<Rational64>, x: f64, y: f64) ->
     // The median node should be at the center of the ellipse
     let center = set.len() as f64 / 2.0 - 0.5;
 
-    for (i, element) in set.drain().enumerate() {
+    for (i, element) in set.iter().enumerate() {
         let pos_y = (i as f64 - center) * SPACING + center_y + 0.2;
         let dot = Circle::new()
             .set("cx", format!("{}in", x))
@@ -72,10 +95,10 @@ fn render_set(set: BTreeSet<Rational64>, x: f64, y: f64) ->
             .set("text-anchor", "middle");
         to_draw.push(Box::new(dot));
         to_draw.push(Box::new(text));
-        elements.insert(element, (x, pos_y));
+        elements.insert(*element, (x, pos_y));
     }
 
-    (to_draw, elements)
+    (to_draw.into_iter(), elements)
 }
 
 
@@ -91,7 +114,7 @@ fn into_set(vec: Vec<f64>) -> BTreeSet<Rational64> {
 struct Relation<'p, T> {
     domain: BTreeSet<T>,
     codomain: BTreeSet<T>,
-    p: &'p dyn Fn((T, T)) -> bool
+    p: &'p dyn Fn((&T, &T)) -> bool
 }
 
 impl<T> Relation<'_, T> {
