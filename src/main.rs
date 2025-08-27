@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, BTreeMap};
 use std::cmp::Ord;
 use svg::Document;
 use svg::node::element::{Ellipse, Circle, Text};
@@ -17,13 +17,13 @@ fn main() {
         p: &p
     };
 
-    let draw_domain = render_set(relation.domain, 1.5, 0.5);
-    let draw_codomain = render_set(relation.codomain, 4.5, 0.5);
+    let (draw_domain, domain_loc) = render_set(relation.domain, 1.5, 0.25);
+    let (draw_codomain, codomain_loc) = render_set(relation.codomain, 4.5, 0.25);
 
 
     let mut document = Document::new()
         .set("width", "6in")
-        .set("height", "5in");
+        .set("height", "6in");
 
     for item in draw_domain.into_iter().chain(draw_codomain.into_iter()) {
         document = document.add(item)
@@ -34,8 +34,12 @@ fn main() {
 }
 
 /// Set, and starting coordinates in inches
-fn render_set(set: BTreeSet<Rational64>, x: f64, y: f64) -> Vec<Box<dyn Node>> {
+fn render_set(set: BTreeSet<Rational64>, x: f64, y: f64) ->
+(Vec<Box<dyn Node>>, BTreeMap<Rational64, (f64, f64)>) {
+    // The elements to be rendered
     let mut to_draw: Vec<Box<dyn Node>> = Vec::new();
+    // So that we know where each number is
+    let mut elements = BTreeMap::new();
 
     const SPACING: f64 = 0.70; // space in inches between bullet points
     let center_y: f64 = SPACING * set.len() as f64 / 2.0 + y;
@@ -52,11 +56,12 @@ fn render_set(set: BTreeSet<Rational64>, x: f64, y: f64) -> Vec<Box<dyn Node>> {
 
     // The median node should be at the center of the ellipse
     let center = set.len() as f64 / 2.0 - 0.5;
-    for (i, element) in set.iter().enumerate() {
-        let pos_y = (i as f64 - center) * SPACING + center_y;
+
+    for (i, element) in set.drain().enumerate() {
+        let pos_y = (i as f64 - center) * SPACING + center_y + 0.2;
         let dot = Circle::new()
-            .set("cy", format!("{}in", pos_y))
             .set("cx", format!("{}in", x))
+            .set("cy", format!("{}in", pos_y))
             .set("r", "0.1in")
             .set("fill", "black");
 
@@ -67,9 +72,10 @@ fn render_set(set: BTreeSet<Rational64>, x: f64, y: f64) -> Vec<Box<dyn Node>> {
             .set("text-anchor", "middle");
         to_draw.push(Box::new(dot));
         to_draw.push(Box::new(text));
+        elements.insert(element, (x, pos_y));
     }
 
-    to_draw
+    (to_draw, elements)
 }
 
 
